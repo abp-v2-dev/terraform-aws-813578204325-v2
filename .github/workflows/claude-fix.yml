@@ -1,0 +1,42 @@
+name: Claude Fix
+
+# Thin caller for WRITE MODE — the assist logic lives in central-repo and cannot
+# be modified from this repo (see CLAUDE_INTEGRATION.md §7.4). Separate file from
+# claude.yml so the `contents: write` surface is physically isolated and
+# CODEOWNERS-reviewable on its own. Protected by the prevent-workflow-edit org
+# ruleset + CODEOWNERS (.github/** requires admin approval).
+#
+# Trigger: a PR comment containing the explicit verb `/claude-fix`, from an
+# OWNER/MEMBER/COLLABORATOR (enforced by the reusable workflow's auth gate). This
+# is deliberately a distinct command, NOT natural-language "@claude fix" — a
+# branch-mutating action requires an explicit trigger, and it keeps this caller
+# mutually exclusive with the advisory claude.yml caller.
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+# The reusable workflow's apply-fix job needs contents: write; the caller is the
+# ceiling, so it must be granted here. The detector job only uses the read subset.
+permissions:
+  id-token: write       # OIDC -> Bedrock
+  contents: write       # apply-fix creates a claude/* branch + pushes the fix
+  pull-requests: write  # open the fix PR + post tracking / refusal comments
+  actions: read         # read CI results to inform the fix
+  checks: read          # read check-run details (github_ci MCP server)
+
+jobs:
+  claude-fix:
+    # The `user.type != 'Bot'` guard is REQUIRED: this workflow posts comments (a
+    # refusal notice, a tracking comment) via the Claude App, whose comments also
+    # fire issue_comment. Without this guard a refusal body containing "/claude-fix"
+    # re-triggers the workflow → infinite loop. Claude only ever acts on a human's
+    # explicit request.
+    if: >
+      github.event.comment.user.type != 'Bot' &&
+      ( github.event.issue.pull_request || github.event_name == 'pull_request_review_comment' ) &&
+      contains(github.event.comment.body, '/claude-fix')
+    uses: abp-v2-dev/central-repo/.github/workflows/tf-module-ai-assist.yml@v1
+    secrets: inherit

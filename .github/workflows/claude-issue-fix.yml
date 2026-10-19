@@ -1,0 +1,37 @@
+name: Claude Issue Fix
+
+# Thin caller for ISSUE WRITE-MODE (Phase 4b) — logic lives in central-repo (see
+# CLAUDE_INTEGRATION.md §7.4). Separate file so the `contents: write` surface is
+# isolated and CODEOWNERS-reviewable. Protected by the prevent-workflow-edit org
+# ruleset + CODEOWNERS.
+#
+# Trigger: `/claude-fix` on an ISSUE (not a PR) → Claude opens a PR that addresses
+# the issue. The `! github.event.issue.pull_request` clause distinguishes this from
+# the PR write caller (claude-fix.yml), which fires only when the comment IS on a
+# PR. Routing matrix (all share issue_comment):
+#   PR    + /claude-fix → claude-fix.yml        (PR write)
+#   ISSUE + /claude-fix → claude-issue-fix.yml  (this file)
+#   ISSUE + @claude     → claude-triage.yml     (read-only triage)
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  id-token: write       # OIDC -> Bedrock
+  contents: write       # apply-fix creates a claude/* branch + pushes
+  pull-requests: write  # open the fix PR
+  issues: write         # comment back on the issue / refusal
+  actions: read
+  checks: read
+
+jobs:
+  claude-issue-fix:
+    # not a bot (avoid self-trigger loops); comment is on an ISSUE, not a PR;
+    # contains the explicit /claude-fix verb.
+    if: >
+      github.event.comment.user.type != 'Bot' &&
+      ! github.event.issue.pull_request &&
+      contains(github.event.comment.body, '/claude-fix')
+    uses: abp-v2-dev/central-repo/.github/workflows/tf-module-ai-issue-fix.yml@v1
+    secrets: inherit

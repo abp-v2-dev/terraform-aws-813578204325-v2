@@ -1,0 +1,34 @@
+name: Claude Issue Triage
+
+# Thin caller for ISSUE TRIAGE (Phase 4a) — the logic lives in central-repo and
+# cannot be modified here (see CLAUDE_INTEGRATION.md). Read-only: classifies an
+# issue, assesses applicability, and outlines a high-level fix path as a comment.
+#
+# Trigger: `@claude` on an ISSUE (not a PR). The `! github.event.issue.pull_request`
+# clause is what distinguishes this from the PR review caller (claude.yml), which
+# fires only when the comment IS on a PR. So the two never overlap:
+#   - @claude on a PR    → claude.yml            → review
+#   - @claude on an issue → claude-triage.yml    → triage (this file)
+# `/claude-fix` is excluded so a fix request routes to the write-mode caller
+# (claude-issue-fix.yml) instead of triggering triage too.
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  id-token: write   # OIDC -> Bedrock
+  contents: read    # read module code for context
+  issues: write     # post the triage comment
+
+jobs:
+  triage:
+    # not a bot (avoid self-trigger loops); the comment is on an ISSUE, not a PR;
+    # contains @claude; and is NOT a /claude-fix request.
+    if: >
+      github.event.comment.user.type != 'Bot' &&
+      ! github.event.issue.pull_request &&
+      contains(github.event.comment.body, '@claude') &&
+      ! contains(github.event.comment.body, '/claude-fix')
+    uses: abp-v2-dev/central-repo/.github/workflows/tf-module-ai-issue-triage.yml@v1
+    secrets: inherit

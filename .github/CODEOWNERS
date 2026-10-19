@@ -1,0 +1,13 @@
+# CODEOWNERS for aws-ia Terraform module repos
+# Require aws-ia team approval for security-sensitive paths
+
+# Suppression configs and helper scripts require internal maintainer approval
+.config/                @abp-v2-dev/abp-v2-dev-internal-contributors
+
+# GitHub workflow files modification require admin approval
+.github/workflows/      @abp-v2-dev/abp-v2-dev-admin
+/.github/CODEOWNERS     @abp-v2-dev/abp-v2-dev-admin
+
+# pre-commit config runs executable hooks (incl. arbitrary `repo: local` entries)
+# in CI — treat it as code execution and require admin approval to change.
+/.pre-commit-config.yaml @abp-v2-dev/abp-v2-dev-admin

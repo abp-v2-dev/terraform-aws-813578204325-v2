@@ -1,0 +1,85 @@
+name: CI
+on:
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+  statuses: write  # post the "awaiting approval" commit status (see notify-awaiting job)
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Block fork PRs to main
+        if: github.event_name == 'pull_request' && github.base_ref == 'main' && github.event.pull_request.head.repo.full_name != github.repository
+        run: |
+          echo "::error::Fork PRs must target the 'develop' or feature branch, not 'main'. Please change the base branch of this PR."
+          exit 1
+
+      - name: Block non-develop PRs to main
+        if: github.event_name == 'pull_request' && github.base_ref == 'main' && github.head_ref != 'develop'
+        run: |
+          echo "::error::PRs to 'main' must originate from the 'develop' branch. Current source: '${{ github.head_ref }}'. Please merge to 'develop' first, then create a PR from 'develop' to 'main'."
+          exit 1
+
+  static-tests:
+    needs: validate
+    uses: abp-v2-dev/central-repo/.github/workflows/tf-module-static-tests.yml@v1
+    with:
+      terraform-version: "1.14.8"  # Update to match your module's required_version
+      # run-build-step: true  # Uncomment if your module has application code (e.g., Lambda)
+
+  # Surface the pending environment-approval gate as a commit status on the PR,
+  # so reviewers see "awaiting approval" in the checks box instead of a silently
+  # paused run. Runs alongside the (paused) approve job; the approve job flips
+  # this same status to success once a reviewer approves. Purely informational —
+  # not a required check.
+  notify-awaiting:
+    needs: static-tests
+    if: github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post "awaiting approval" status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh api -X POST "/repos/${{ github.repository }}/statuses/${SHA}" \
+            -f state=pending \
+            -f context='functional-tests / approval' \
+            -f description='Waiting on maintainer approval of functional-test environment' \
+            -f target_url="${RUN_URL}"
+
+  approve:
+    needs: static-tests
+    if: github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    environment: functional-test
+    steps:
+      - name: Approved
+        run: echo "Static tests passed. Functional tests approved by reviewer."
+
+      - name: Clear "awaiting approval" status
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh api -X POST "/repos/${{ github.repository }}/statuses/${SHA}" \
+            -f state=success \
+            -f context='functional-tests / approval' \
+            -f description='Approved — functional tests running' \
+            -f target_url="${RUN_URL}"
+
+  functional-tests:
+    needs: approve
+    if: github.base_ref == 'main'
+    uses: abp-v2-dev/central-repo/.github/workflows/tf-module-functional-tests.yml@v1
+    with:
+      terraform-version: "1.14.8"  # Update to match your module's required_version
+      # run-build-step: true  # Uncomment if your module has application code (e.g., Lambda)
+    secrets: inherit
