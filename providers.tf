@@ -9,6 +9,6 @@ terraform {
   }
 
   provider_meta "aws" {
-    user_agent = ["AWS/1.0 __ORG_NAME__/__MODULE_NAME__:__VERSION__"]
+    user_agent = ["AWS/1.0 aws-ia/terraform-aws-s3-bucket:__VERSION__"]
   }
 }

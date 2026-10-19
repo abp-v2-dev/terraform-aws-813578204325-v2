@@ -1,6 +1,19 @@
-# Define your output values here.
-# Example:
-# output "id" {
-#   description = "The ID of the resource"
-#   value       = aws_resource.example.id
-# }
+output "bucket_id" {
+  description = "The name (ID) of the bucket."
+  value       = aws_s3_bucket.this.id
+}
+
+output "bucket_arn" {
+  description = "The ARN of the bucket."
+  value       = aws_s3_bucket.this.arn
+}
+
+output "bucket_domain_name" {
+  description = "The bucket domain name."
+  value       = aws_s3_bucket.this.bucket_domain_name
+}
+
+output "bucket_regional_domain_name" {
+  description = "The bucket region-specific domain name."
+  value       = aws_s3_bucket.this.bucket_regional_domain_name
+}
