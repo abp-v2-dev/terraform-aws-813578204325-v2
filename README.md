@@ -1,5 +1,5 @@
 <!-- BEGIN_TF_DOCS -->
-# terraform-aws-s3-bucket
+# terraform-aws-813578204325-v2
 
 <!-- Safe to remove this section once you familiar with the module scafolding architecture -->
 ## Getting Started (Module Authors)
@@ -25,7 +25,7 @@ ownership (no ACLs), versioning, and server-side encryption enabled by default.
 
 ```hcl
 module "example" {
-  source  = "aws-ia/s3-bucket/aws"
+  source  = "abp-v2-dev/813578204325-v2/aws"
   version = ">= 0.0.1"
 
   bucket_name = "my-unique-bucket-name"
