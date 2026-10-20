@@ -17,3 +17,8 @@ output "bucket_regional_domain_name" {
   description = "The bucket region-specific domain name."
   value       = aws_s3_bucket.this.bucket_regional_domain_name
 }
+
+output "object_lock_enabled" {
+  description = "Whether S3 Object Lock (write-once-read-many) is enabled on the bucket."
+  value       = aws_s3_bucket.this.object_lock_enabled
+}

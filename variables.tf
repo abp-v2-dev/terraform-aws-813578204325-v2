@@ -38,3 +38,42 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "object_lock_enabled" {
+  description = "Whether to enable S3 Object Lock (write-once-read-many) on the bucket. Can only be set at bucket creation time, requires versioning to be enabled, and requires exactly one of object_lock_retention_days or object_lock_retention_years to be set."
+  type        = bool
+  default     = false
+}
+
+variable "object_lock_mode" {
+  description = "Default Object Lock retention mode applied to new object versions when object_lock_enabled is true. Valid values are 'GOVERNANCE' (lock can be overridden by users with special permissions) or 'COMPLIANCE' (lock cannot be overridden by anyone, including the root user)."
+  type        = string
+  default     = "GOVERNANCE"
+
+  validation {
+    condition     = contains(["GOVERNANCE", "COMPLIANCE"], var.object_lock_mode)
+    error_message = "object_lock_mode must be either 'GOVERNANCE' or 'COMPLIANCE'."
+  }
+}
+
+variable "object_lock_retention_days" {
+  description = "Default Object Lock retention period, in days, applied to new object versions. Required (set exactly one of object_lock_retention_days / object_lock_retention_years) when object_lock_enabled is true; ignored otherwise."
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.object_lock_retention_days == null || var.object_lock_retention_days > 0
+    error_message = "object_lock_retention_days must be a positive number when set."
+  }
+}
+
+variable "object_lock_retention_years" {
+  description = "Default Object Lock retention period, in years, applied to new object versions. Required (set exactly one of object_lock_retention_days / object_lock_retention_years) when object_lock_enabled is true; ignored otherwise."
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.object_lock_retention_years == null || var.object_lock_retention_years > 0
+    error_message = "object_lock_retention_years must be a positive number when set."
+  }
+}
