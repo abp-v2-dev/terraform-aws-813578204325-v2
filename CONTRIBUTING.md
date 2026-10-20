@@ -38,6 +38,27 @@ export AWS_REGION=us-east-1
 make test
 ```
 
+### Pre-PR Checklist
+
+Run this sequence before opening or updating a PR, so CI failures are caught locally instead of on the PR:
+
+1. **Format** — `terraform fmt -recursive` (or `make fmt`) at the repo root. This also formats every `examples/*/` directory, since `fmt -recursive` descends into subdirectories.
+2. **Validate every root module you touched** — `terraform init -backend=false && terraform validate` run separately in the repo root **and** in each `examples/*/` directory you added or changed. Each example is its own root module with its own provider requirements; validating only the repo root does not catch a broken example.
+3. **Lint** — `make lint` (tflint) from the repo root; it scans the whole tree, examples included.
+4. **Security scan** — `make security-scan` (requires Docker), or `checkov --config-file .config/.checkov.yml` directly if Docker/ASH isn't available locally. If you add a skip-check to `.config/.checkov.yml`, state why in the PR description — CI's suppression-diff check flags skip-list changes for reviewer attention.
+5. **Docs** — `make docs` regenerates the root `README.md` from `.header.md`. It does **not** touch example READMEs. Regenerate those separately from inside each example directory:
+
+   ```bash
+   cd examples/<name> && terraform-docs --config ../../.config/.terraform-docs.yaml --lockfile=false .
+   ```
+
+   Skipping this step is easy to miss locally and leaves an example's `README.md` silently out of sync with its own `main.tf`/`outputs.tf` — nothing fails until a reviewer (or a future contributor) notices the drift.
+6. **Exercise new input validation manually.** `terraform validate` only checks syntax and types — it does not evaluate `validation` blocks, `lifecycle.precondition`s, or `check` blocks against real values. If you add or change one, confirm it actually rejects bad input by pointing a scratch root module at your local module path (`source = "/absolute/path/to/this/repo"`) with the invalid combination, running `terraform plan`, and reading the result:
+   - A `lifecycle.precondition` failure shows as a hard `Error:` and stops the plan — this is what you want for a hard requirement.
+   - A `check` block failure only shows as a `Warning:` — `terraform plan`/`apply` still proceeds. Don't rely on a `check` block where an invalid combination must block `apply`.
+   Delete the scratch directory when done; it is not part of the module and must not be committed.
+7. **If AWS credentials are available**, run a real `terraform plan` (not `apply`) against each changed or added example to confirm the resource graph matches what you expect — `validate` would not have caught the Object Lock `default_retention`-block requirement that surfaced only at `plan` time, for example.
+
 ## Pre-commit Hooks
 
 Set up pre-commit hooks to auto-format code and regenerate docs on commit:
@@ -82,11 +103,33 @@ Both environments have `prevent_self_review: true` and `can_admins_bypass: false
 
 Branch protection is enforced via org-level rulesets that engage when the repo's `tier` custom property is set to `protected`. This includes required status checks and PR review requirements on `main` and `develop`.
 
+In practice this means **you cannot `git push` directly to `develop` or `main`**, even as the repo owner — the push is rejected with a `GH013: Repository rule violations` error. All changes, including small docs fixes, go through a feature branch and a PR. See the Branching Strategy above.
+
 ### OIDC Federation
 
 The `AWS_OIDC_ROLE_ARN` repository secret is set automatically during provisioning. The IAM role itself is created by the bootstrap repo's `module-infra` Terraform root (per module, hub→spoke) and its ARN written back as this secret — no manual script.
 
 The trust policy scopes access to the Central Repo's reusable workflow path (see `docs/oidc-trust-policy.json` in the central repo).
+
+### User Agent Validation
+
+CI's static-tests workflow (`abp-v2-dev/central-repo`'s `tf-module-static-tests.yml`, not checked into this repo) includes a **Validate User Agent** step that fails the build if `providers.tf`'s `provider_meta "aws" { user_agent = [...] }` string doesn't match three derived values exactly:
+
+```hcl
+provider_meta "aws" {
+  user_agent = ["AWS/1.0 <org>/<module>:<version>"]
+}
+```
+
+| Segment | Expected value | Derived from |
+|---------|-----------------|--------------|
+| `<org>` | `abp-v2-dev` | The GitHub org this repo lives in |
+| `<module>` | Repo name with the `terraform-aws-` prefix stripped (e.g. `813578204325-v2`) | `$GITHUB_REPOSITORY`, not a value you choose |
+| `<version>` | `VERSION` file content, **without** the `v` prefix (e.g. `VERSION` = `v0.0.1` → `0.0.1`) | The `VERSION` file |
+
+Because the check derives `<org>` and `<module>` from the repo itself, there is nothing to "fill in" freely — only `<version>` changes as you release. **Any time you bump `VERSION`, update `providers.tf`'s `user_agent` version segment in the same commit**, or the CI check fails. The three placeholders left by the template (`__ORG_NAME__`, `__MODULE_NAME__`, `__VERSION__`, see Step 1 in [AUTHOR_GUIDE.md](AUTHOR_GUIDE.md)) must all be replaced before the first PR — a leftover placeholder fails the same check with an explicit "placeholder has not been replaced" error.
+
+This step is easy to miss because its logic is not visible anywhere in this repo; the only way to see the exact expected values is to read a failed CI run's log for the "Validate User Agent" step, or this section.
 
 ### Build Steps (Optional)
 
