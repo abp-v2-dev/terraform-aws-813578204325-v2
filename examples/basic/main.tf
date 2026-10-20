@@ -7,5 +7,14 @@
 module "this" {
   source = "../.."
 
-  # Add required variables here
+  bucket_name = "abp-example-s3-bucket-${random_id.suffix.hex}"
+
+  tags = {
+    Example = "basic"
+  }
+}
+
+# Random suffix keeps the example's bucket name globally unique across test runs.
+resource "random_id" "suffix" {
+  byte_length = 4
 }

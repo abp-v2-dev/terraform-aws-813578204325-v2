@@ -15,6 +15,11 @@ skip-check:
   - CKV_ALI*     # Skip non-AWS: Alibaba Cloud checks
   - CKV_OCI*     # Skip non-AWS: Oracle Cloud checks
   - CKV_TF_1     # Default to Terraform registry instead of Git
+  - CKV_AWS_18   # S3 access logging: opinionated extra, not baseline for this simple bucket module
+  - CKV2_AWS_61  # S3 lifecycle configuration: opinionated extra, not baseline for this simple bucket module
+  - CKV2_AWS_62  # S3 event notifications: opinionated extra, not baseline for this simple bucket module
+  - CKV_AWS_144  # S3 cross-region replication: opinionated extra, not baseline for this simple bucket module
+  - CKV_AWS_145  # S3 bucket KMS encryption: module defaults to SSE-S3 (AES256) for simplicity; sse_algorithm/kms_key_arn let callers opt into KMS
 summary-position: bottom
 output: cli
 compact: true

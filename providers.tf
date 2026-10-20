@@ -9,6 +9,6 @@ terraform {
   }
 
   provider_meta "aws" {
-    user_agent = ["AWS/1.0 __ORG_NAME__/__MODULE_NAME__:__VERSION__"]
+    user_agent = ["AWS/1.0 abp-v2-dev/813578204325-v2:0.0.0"]
   }
 }
