@@ -57,12 +57,7 @@ Run this sequence before opening or updating a PR, so CI failures are caught loc
    - A `lifecycle.precondition` failure shows as a hard `Error:` and stops the plan — this is what you want for a hard requirement.
    - A `check` block failure only shows as a `Warning:` — `terraform plan`/`apply` still proceeds. Don't rely on a `check` block where an invalid combination must block `apply`.
    Delete the scratch directory when done; it is not part of the module and must not be committed.
-7. **Never assume which AWS account/credentials to plan against — ask first.** `terraform plan` requires live provider calls, so it runs against whatever AWS credentials are currently active (default profile, `AWS_PROFILE`, instance role, etc.), which may be a real account you don't intend to touch. Before running `plan` for this step:
-   - Check the active identity (`aws sts get-caller-identity`, and `aws configure list-profiles` if profiles are in use) and show it to the user.
-   - Explicitly ask the user which AWS profile or account to use, rather than silently using whatever is currently active. Do not proceed on an assumed or default profile.
-   - Treat the answer as the user's explicit confirmation for this plan-only run; it does not authorize `apply` or any other mutating action.
-
-   Once confirmed, run a real `terraform plan` (not `apply`) against each changed or added example to confirm the resource graph matches what you expect — `validate` would not have caught the Object Lock `default_retention`-block requirement that surfaced only at `plan` time, for example. If no credentials are available or the user declines, skip this step and say so explicitly rather than guessing at the result.
+7. **If AWS credentials are available**, run a real `terraform plan` (not `apply`) against each changed or added example to confirm the resource graph matches what you expect — `validate` would not have caught the Object Lock `default_retention`-block requirement that surfaced only at `plan` time, for example. `plan` makes live provider calls against whichever AWS credentials/profile are currently active, so confirm you're pointed at the right account before running it.
 
 ## Pre-commit Hooks
 
